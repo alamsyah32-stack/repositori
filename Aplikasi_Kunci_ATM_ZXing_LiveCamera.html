@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Serah Terima Kunci ATM & COU</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ZXing Browser Barcode/QR Scanner -->
+    <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+
+    <style>
+        :root { --app-blue: #2563eb; --app-dark: #0f172a; }
+        html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+        body { min-width: 320px; overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom); }
+        button, input, select, textarea { font: inherit; }
+        button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        input, select, textarea { min-height: 44px; font-size: 16px !important; }
+        .scanner-section { background: linear-gradient(180deg,#f8fafc 0%,#fff 100%); border:1px solid #e2e8f0; border-radius:18px; padding:14px; }
+        .scanner-actions { display:grid; grid-template-columns:1fr .7fr; gap:8px; }
+        .scanner-btn { min-height:46px; border:0; border-radius:12px; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; transition:transform .15s ease,box-shadow .15s ease; }
+        .scanner-btn:active { transform:scale(.98); }
+        .scanner-btn-primary { color:#fff; background:#0f172a; box-shadow:0 6px 16px rgba(15,23,42,.16); }
+        .scanner-btn-danger { color:#be123c; background:#fff1f2; }
+        .scanner-status { white-space:nowrap; border-radius:999px; padding:5px 9px; font-size:10px; font-weight:800; }
+        .scanner-off { background:#f1f5f9; color:#64748b; } .scanner-on { background:#dcfce7; color:#15803d; }
+        .scanner-view { position:relative; width:100%; min-height:260px; overflow:hidden; border-radius:16px; background:#020617; border:1px solid #cbd5e1; }
+        .scanner-video { display:block; width:100%; height:100%; min-height:260px; object-fit:cover; background:#020617; }
+        .scanner-frame { position:absolute; left:50%; top:50%; width:min(68vw,260px); aspect-ratio:1; transform:translate(-50%,-50%); border:2px solid rgba(255,255,255,.92); border-radius:18px; box-shadow:0 0 0 999px rgba(2,6,23,.24),0 0 24px rgba(255,255,255,.16); pointer-events:none; }
+        .scanner-frame::before,.scanner-frame::after,.scanner-frame span::before,.scanner-frame span::after { content:''; position:absolute; width:24px; height:24px; border-color:#38bdf8; border-style:solid; }
+        .scanner-frame::before { left:-2px; top:-2px; border-width:4px 0 0 4px; border-radius:14px 0 0 0; } .scanner-frame::after { right:-2px; top:-2px; border-width:4px 4px 0 0; border-radius:0 14px 0 0; }
+        .scanner-frame span::before { left:-2px; bottom:-2px; border-width:0 0 4px 4px; border-radius:0 0 0 14px; } .scanner-frame span::after { right:-2px; bottom:-2px; border-width:0 4px 4px 0; border-radius:0 0 14px 0; }
+        .scanner-hint { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); max-width:calc(100% - 24px); padding:7px 12px; border-radius:999px; background:rgba(15,23,42,.72); color:#fff; font-size:10px; font-weight:700; text-align:center; backdrop-filter:blur(8px); }
+        .scanner-placeholder { min-height:260px; padding:34px 24px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:radial-gradient(circle at top,#f8fafc 0%,#e2e8f0 100%); }
+        .scanner-placeholder-icon { width:58px; height:58px; display:grid; place-items:center; margin-bottom:12px; border-radius:18px; background:#dbeafe; color:#2563eb; font-size:22px; } .scanner-error { background:#ffe4e6; color:#e11d48; } .scanner-preview-img { display:block; width:100%; max-height:300px; object-fit:contain; background:#fff; border-radius:16px; }
+        @media (max-width:640px) {
+            #loginScreen { padding:14px; } #loginScreen>div { padding:24px 20px; border-radius:20px; } #loginScreen h1 { font-size:20px; }
+            header>div { height:60px; } header .w-10 { width:38px; height:38px; } header h1 { font-size:13px; } header p { font-size:10px; }
+            main { padding:12px !important; } .tab-content>div,main .bg-white { border-radius:18px; } .tab-content .p-6 { padding:16px !important; }
+            nav { position:sticky; top:60px; z-index:25; } nav>div { padding:7px 8px !important; gap:4px; } .tab-btn { min-height:40px; padding-left:11px !important; padding-right:11px !important; }
+            .scanner-view,.scanner-video,.scanner-placeholder { min-height:300px; } .scanner-frame { width:min(72vw,250px); } canvas { touch-action:none; } table { min-width:720px; }
+        }
+        @media (max-width:380px) { .scanner-actions { grid-template-columns:1fr; } .scanner-status { display:none; } .scanner-view,.scanner-video,.scanner-placeholder { min-height:270px; } }
+        @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printableBeritaAcara, #printableBeritaAcara *, #modalPrintBA, #modalPrintBA * {
+                visibility: visible;
+            }
+            #printableBeritaAcara, #modalPrintBA {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white;
+                padding: 20px;
+                z-index: 9999;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl mb-4 shadow-lg shadow-blue-500/30 text-2xl">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900">Sistem Kunci ATM Batam</h1>
+                <p id="connectionStatusText" class="text-sm text-blue-600 font-semibold mt-1">Menghubungkan ke Google Spreadsheet...</p>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Username</label>
+                    <input type="text" id="loginUser" required placeholder="Masukkan Username..." class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Password</label>
+                    <input type="password" id="loginPass" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm">
+                        Masuk Aplikasi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="appContainer" class="flex-1 flex flex-col hidden">
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-500/20">
+                        <i class="fa-solid fa-vault"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-bold text-slate-900 leading-tight">Key & ATM Vault Manager</h1>
+                        <p class="text-xs text-slate-500">Live Google Spreadsheet Connected</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="text-right hidden sm:block">
+                        <span id="displayUsername" class="block text-sm font-bold text-slate-800">Admin</span>
+                        <span id="displayRoleBadge" class="inline-block px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-blue-100 text-blue-700">Pimpinan</span>
+                    </div>
+                    <button type="button" onclick="handleLogout()" class="px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span>Keluar</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto flex space-x-2 overflow-x-auto py-2">
+                <button onclick="switchTab('serahTerima')" id="tab-serahTerima" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 transition-all whitespace-nowrap"><i class="fa-solid fa-handshake mr-1.5"></i> Serah Terima Kunci</button>
+                <button onclick="switchTab('uangTersangkut')" id="tab-uangTersangkut" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-all whitespace-nowrap"><i class="fa-solid fa-money-bill-transfer mr-1.5"></i> Uang Tersangkut</button>
+                <button onclick="switchTab('brankas')" id="tab-brankas" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-all whitespace-nowrap"><i class="fa-solid fa-key mr-1.5"></i> Kombinasi Brankas</button>
+                <button onclick="switchTab('masterAtm')" id="tab-masterAtm" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-all whitespace-nowrap"><i class="fa-solid fa-desktop mr-1.5"></i> Master ATM</button>
+                <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-all whitespace-nowrap"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Riwayat & Log</button>
+            </div>
+        </nav>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+            <!-- TAB 1: SERAH TERIMA KUNCI -->
+            <div id="content-serahTerima" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                        <h2 class="text-base font-bold text-slate-900 border-b pb-3 flex items-center justify-between"><span>Form Serah Terima</span><i class="fa-solid fa-barcode text-blue-600"></i></h2>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih Cluster Kunci</label>
+                            <select id="stClusterSelect" onchange="loadClusterKeys()" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></select>
+                        </div>
+
+                        <!-- Informasi Shift & Petugas -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Shift Penyerah</label>
+                                <select id="shiftSebelum" onchange="updateBeritaAcaraPreview()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs mb-2">
+                                    <option value="Shift 1 (Pagi)">Shift 1 (Pagi)</option>
+                                    <option value="Shift 2 (Sore)">Shift 2 (Sore)</option>
+                                    <option value="Shift 3 (Malam)">Shift 3 (Malam)</option>
+                                </select>
+                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Penyerah</label>
+                                <input type="text" id="namaPenyerah" oninput="updateBeritaAcaraPreview()" placeholder="Nama Penyerah..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Shift Penerima</label>
+                                <select id="shiftBerjalan" onchange="updateBeritaAcaraPreview()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs mb-2">
+                                    <option value="Shift 2 (Sore)">Shift 2 (Sore)</option>
+                                    <option value="Shift 3 (Malam)">Shift 3 (Malam)</option>
+                                    <option value="Shift 1 (Pagi)">Shift 1 (Pagi)</option>
+                                </select>
+                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Penerima (Scan)</label>
+                                <input type="text" id="namaPenerima" oninput="updateBeritaAcaraPreview()" placeholder="Nama Penerima..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                            </div>
+                        </div>
+
+                        <div class="scanner-section">
+                            <div class="flex items-center justify-between mb-2 gap-2">
+                                <label class="block text-xs font-semibold text-slate-600 uppercase">Scan Barcode (Oleh Petugas Penerima)</label>
+                                <span id="scannerStatus" class="scanner-status scanner-off"><i class="fa-solid fa-circle text-[7px] mr-1"></i> Kamera Mati</span>
+                            </div>
+                            <div class="scanner-actions">
+                                <button type="button" onclick="openLiveBarcodeScanner()" class="scanner-btn scanner-btn-primary"><i class="fa-solid fa-camera mr-1.5"></i> Buka Live Camera</button>
+                                <button type="button" onclick="stopCameraScanner()" class="scanner-btn scanner-btn-danger"><i class="fa-solid fa-rotate-left mr-1.5"></i> Reset</button>
+                            </div>
+                            <div id="reader" class="scanner-view mt-3">
+                                <div class="scanner-placeholder">
+                                    <div class="scanner-placeholder-icon"><i class="fa-solid fa-camera"></i></div>
+                                    <p class="font-semibold text-slate-700 text-sm">Live scanner siap digunakan</p>
+                                    <p class="text-xs text-slate-500 mt-1">Tekan “Buka Live Camera”. Kamera akan dibuka pada halaman scanner khusus dan barcode dipindai secara realtime.</p>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-2 flex items-start gap-1.5"><i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i><span>Live camera memakai halaman scanner HTTPS terpisah karena Google Apps Script membatasi akses kamera langsung di HTMLService. Hasil scan dikirim kembali otomatis ke aplikasi.</span></p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Input Manual Barcode</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="manualBarcodeInput" placeholder="Contoh: ssi123" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm">
+                                <button type="button" onclick="manualScanKey()" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold">Check</button>
+                            </div>
+                        </div>
+
+                        <!-- Tanda Tangan Digital Petugas Penyerah -->
+                        <div class="pt-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-600 uppercase">TTD Petugas Penyerah</label>
+                                <button type="button" onclick="clearSignature('penyerah')" class="text-[10px] text-rose-600 hover:underline">Hapus TTD</button>
+                            </div>
+                            <div class="border border-slate-300 rounded-xl bg-slate-50 overflow-hidden">
+                                <canvas id="sigCanvasPenyerah" width="280" height="100" class="w-full cursor-crosshair touch-none"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Tanda Tangan Digital Petugas Penerima -->
+                        <div class="pt-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-600 uppercase">TTD Petugas Penerima</label>
+                                <button type="button" onclick="clearSignature('penerima')" class="text-[10px] text-rose-600 hover:underline">Hapus TTD</button>
+                            </div>
+                            <div class="border border-slate-300 rounded-xl bg-slate-50 overflow-hidden">
+                                <canvas id="sigCanvasPenerima" width="280" height="100" class="w-full cursor-crosshair touch-none"></canvas>
+                            </div>
+                        </div>
+
+                        <button onclick="submitSerahTerima()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-semibold text-sm shadow-lg transition-all mt-4">Selesaikan & Simpan</button>
+                    </div>
+
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
+                            <div class="flex items-center justify-between mb-4 border-b pb-3">
+                                <h3 class="font-bold text-slate-900 text-sm">Checklist Barcode Cluster</h3>
+                                <div id="statusBadge" class="px-3 py-1 text-xs font-bold rounded-full bg-slate-100 text-slate-600">Belum Diperiksa</div>
+                            </div>
+                            <div id="keyListContainer" class="space-y-2 mb-6"></div>
+                        </div>
+
+                        <!-- PRATINJAU & DOWNLOAD PDF BERITA ACARA -->
+                        <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                            <div class="flex items-center justify-between border-b pb-3">
+                                <h3 class="font-bold text-slate-900 text-sm">Pratinjau Resmi Berita Acara</h3>
+                                <button onclick="downloadPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                    <span>Unduh / Cetak PDF</span>
+                                </button>
+                            </div>
+
+                            <!-- Area Cetak PDF Resmi -->
+                            <div id="printableBeritaAcara" class="p-6 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-4 font-mono">
+                                <div class="text-center font-bold text-sm tracking-wide text-slate-900 border-b border-slate-300 pb-3">
+                                    BERITA ACARA SERAH TERIMA KUNCI ATM & COU<br>PT SWADHARMA SARANA INFORMATIKA (SSI) BATAM
+                                </div>
+                                <div id="baDetailContent" class="space-y-1">
+                                    <!-- Diisi secara dinamis via JS -->
+                                </div>
+                                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-slate-300 text-center">
+                                    <div>
+                                        <p class="font-semibold mb-1">Petugas Penyerah</p>
+                                        <div class="h-16 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white">
+                                            <img id="previewSigPenyerah" src="" alt="Belum TTD" class="max-h-14 hidden">
+                                            <span id="noSigTextPenyerah" class="text-slate-400 italic text-[10px]">Belum Ada TTD</span>
+                                        </div>
+                                        <p id="signNamePenyerahPrev" class="mt-1 font-bold text-slate-800">( ........................................ )</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold mb-1">Petugas Penerima</p>
+                                        <div class="h-16 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white">
+                                            <img id="previewSigPenerima" src="" alt="Belum TTD" class="max-h-14 hidden">
+                                            <span id="noSigTextPenerima" class="text-slate-400 italic text-[10px]">Belum Ada TTD</span>
+                                        </div>
+                                        <p id="signNamePenerimaPrev" class="mt-1 font-bold text-slate-800">( ........................................ )</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: UANG TERSANGKUT -->
+            <div id="content-uangTersangkut" class="tab-content hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 max-w-2xl mx-auto">
+                    <h2 class="text-base font-bold text-slate-900 border-b pb-3 mb-4 flex items-center justify-between"><span>Pencatatan Uang Tersangkut</span><i class="fa-solid fa-money-bill-transfer text-blue-600"></i></h2>
+                    <form onsubmit="submitUangTersangkut(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih ATM ID</label>
+                            <select id="utAtmSelect" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Denom Rp 50.000</label><input type="number" id="utDenom50" value="0" min="0" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></div>
+                            <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Denom Rp 100.000</label><input type="number" id="utDenom100" value="0" min="0" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></div>
+                        </div>
+                        <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Keterangan / Bukti</label><input type="text" id="utFoto" placeholder="Keterangan..." class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm">Simpan Uang Tersangkut</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 3: BRANKAS -->
+            <div id="content-brankas" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                        <h2 class="text-base font-bold text-slate-900 border-b pb-3">Permohonan Izin Buka Brankas</h2>
+                        <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih ATM</label><select id="vaultAtmSelect" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></select></div>
+                        <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Alasan</label><textarea id="vaultReason" rows="3" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm"></textarea></div>
+                        <button onclick="requestVaultOpening()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm">Generate & Ambil Kombinasi</button>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 border-b pb-3 mb-4">Informasi Kombinasi Aktif</h2>
+                            <div id="vaultResultBox" class="p-6 bg-slate-50 rounded-xl border border-slate-200 text-center space-y-3">
+                                <i class="fa-solid fa-lock text-4xl text-slate-400"></i>
+                                <p class="text-sm text-slate-500">Pilih ATM dan ajukan izin untuk melihat kombinasi.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: MASTER ATM -->
+            <div id="content-masterAtm" class="tab-content hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
+                    <div class="flex items-center justify-between border-b pb-3 mb-4">
+                        <h2 class="text-base font-bold text-slate-900">Master Data Mesin ATM & Barcode</h2>
+                        <div id="addAtmBtnWrapper"><button onclick="openAtmModal()" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold"><i class="fa-solid fa-plus mr-1"></i> Tambah ATM</button></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead><tr class="bg-slate-50 text-slate-600 uppercase text-[10px] border-b"><th class="p-3">ATM ID</th><th class="p-3">Lokasi</th><th class="p-3">Cluster</th><th class="p-3">Kombinasi</th><th class="p-3">Barcode</th><th class="p-3 text-center">Aksi</th></tr></thead>
+                            <tbody id="masterAtmTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: RIWAYAT & LOG -->
+            <div id="content-logs" class="tab-content hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-4">
+                    <h2 class="text-base font-bold text-slate-900 border-b pb-3">Riwayat Log Spreadsheet</h2>
+                    <div class="flex space-x-2 border-b pb-3">
+                        <button onclick="switchLogSub('logSerah')" id="sublog-serah" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-white">Log Serah Terima</button>
+                        <button onclick="switchLogSub('logBrankas')" id="sublog-brankas" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600">Log Brankas</button>
+                        <button onclick="switchLogSub('logUang')" id="sublog-uang" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600">Log Uang</button>
+                    </div>
+                    <div id="logTableWrapper" class="overflow-x-auto"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL CETAK HISTORIS BA -->
+    <div id="modalPrintBA" class="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3 no-print">
+                <h3 class="font-bold text-slate-900 text-sm">Detail Berita Acara Tersimpan</h3>
+                <button onclick="closePrintModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modalPrintContent" class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono whitespace-pre-line text-slate-800"></div>
+            <div class="flex space-x-2 pt-2 no-print">
+                <button onclick="closePrintModal()" class="flex-1 bg-slate-100 py-2.5 rounded-xl text-xs font-semibold">Tutup</button>
+                <button onclick="printHistoricalBA()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2"><i class="fa-solid fa-file-pdf"></i><span>Cetak / Unduh PDF</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ATM -->
+    <div id="atmModal" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 id="modalTitle" class="text-base font-bold text-slate-900 border-b pb-3">Tambah Master ATM</h3>
+            <form id="atmForm" onsubmit="saveAtmMaster(event)" class="space-y-3">
+                <input type="hidden" id="editAtmIndex" value="">
+                <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">ATM ID</label><input type="text" id="modalAtmId" required class="w-full px-3 py-2.5 rounded-xl border text-sm" placeholder="Contoh: ATM-01"></div>
+                <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Lokasi</label><input type="text" id="modalAtmLoc" required class="w-full px-3 py-2.5 rounded-xl border text-sm" placeholder="Contoh: Nagoya Hill"></div>
+                <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Cluster</label><input type="text" id="modalAtmCluster" required class="w-full px-3 py-2.5 rounded-xl border text-sm" placeholder="Contoh: NAGOYA"></div>
+                <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kombinasi Brankas</label><input type="text" id="modalAtmCombo" required class="w-full px-3 py-2.5 rounded-xl border text-sm" placeholder="Contoh: 8899-2341"></div>
+                <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Barcode</label><input type="text" id="modalAtmBarcode" required class="w-full px-3 py-2.5 rounded-xl border text-sm" placeholder="Contoh: ssi123"></div>
+                <div class="flex space-x-2 pt-3">
+                    <button type="button" onclick="closeAtmModal()" class="flex-1 bg-slate-100 py-2.5 rounded-xl text-xs font-semibold">Batal</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-xs font-semibold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        let dbUsers = [];
+        let dbClusters = [];
+        let dbMasterAtm = [];
+        let dbLogSerahTerima = [];
+        let dbLogBrankas = [];
+        let dbLogUangTersangkut = [];
+
+        let currentUser = null;
+        let scannedKeys = new Set();
+        let zxingReader = null;
+        let zxingControls = null;
+        let scannerRunning = false;
+        let lastScannedCode = '';
+        let lastScannedAt = 0;
+        let canvasPenyerah, ctxPenyerah, drawingPenyerah = false;
+        let canvasPenerima, ctxPenerima, drawingPenerima = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAppDataFromCloud();
+            initSignaturePads();
+        });
+
+        function getMockData() {
+            return {
+                users: [
+                    { Username: "admin1", Password: "12345", Role: "Pimpinan", Clusters: "NAGOYA,BATAM CENTER" },
+                    { Username: "petugas1", Password: "12345", Role: "Petugas", Clusters: "NAGOYA" }
+                ],
+                clusters: [
+                    { ClusterID: "1", ClusterName: "NAGOYA", KeyBarcodes: "ssi123,KUNCI-A1" },
+                    { ClusterID: "2", ClusterName: "BATAM CENTER", KeyBarcodes: "KUNCI-B1,KUNCI-B2" }
+                ],
+                masterAtm: [
+                    { id: "ATM-01", location: "Nagoya Hill", cluster: "NAGOYA", combination: "8899-2341", barcode: "ssi123" }
+                ],
+                logSerahTerima: [],
+                logBrankas: [],
+                logUangTersangkut: []
+            };
+        }
+
+        function initSignaturePads() {
+            canvasPenyerah = document.getElementById('sigCanvasPenyerah');
+            ctxPenyerah = canvasPenyerah.getContext('2d');
+            ctxPenyerah.strokeStyle = '#0f172a';
+            ctxPenyerah.lineWidth = 2;
+            ctxPenyerah.lineCap = 'round';
+
+            canvasPenyerah.addEventListener('mousedown', (e) => startDraw(e, 'penyerah'));
+            canvasPenyerah.addEventListener('mousemove', (e) => draw(e, 'penyerah'));
+            canvasPenyerah.addEventListener('mouseup', () => stopDraw('penyerah'));
+            canvasPenyerah.addEventListener('mouseleave', () => stopDraw('penyerah'));
+            canvasPenyerah.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e.touches[0], 'penyerah'); });
+            canvasPenyerah.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0], 'penyerah'); });
+            canvasPenyerah.addEventListener('touchend', (e) => { e.preventDefault(); stopDraw('penyerah'); });
+
+            canvasPenerima = document.getElementById('sigCanvasPenerima');
+            ctxPenerima = canvasPenerima.getContext('2d');
+            ctxPenerima.strokeStyle = '#0f172a';
+            ctxPenerima.lineWidth = 2;
+            ctxPenerima.lineCap = 'round';
+
+            canvasPenerima.addEventListener('mousedown', (e) => startDraw(e, 'penerima'));
+            canvasPenerima.addEventListener('mousemove', (e) => draw(e, 'penerima'));
+            canvasPenerima.addEventListener('mouseup', () => stopDraw('penerima'));
+            canvasPenerima.addEventListener('mouseleave', () => stopDraw('penerima'));
+            canvasPenerima.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e.touches[0], 'penerima'); });
+            canvasPenerima.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0], 'penerima'); });
+            canvasPenerima.addEventListener('touchend', (e) => { e.preventDefault(); stopDraw('penerima'); });
+        }
+
+        function getPos(e, canvas) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX || e.pageX) - rect.left,
+                y: (e.clientY || e.pageY) - rect.top
+            };
+        }
+
+        function startDraw(e, type) {
+            if (type === 'penyerah') {
+                drawingPenyerah = true;
+                const pos = getPos(e, canvasPenyerah);
+                ctxPenyerah.beginPath();
+                ctxPenyerah.moveTo(pos.x, pos.y);
+            } else {
+                drawingPenerima = true;
+                const pos = getPos(e, canvasPenerima);
+                ctxPenerima.beginPath();
+                ctxPenerima.moveTo(pos.x, pos.y);
+            }
+        }
+
+        function draw(e, type) {
+            if (type === 'penyerah' && drawingPenyerah) {
+                const pos = getPos(e, canvasPenyerah);
+                ctxPenyerah.lineTo(pos.x, pos.y);
+                ctxPenyerah.stroke();
+                updateSignaturePreview('penyerah');
+            } else if (type === 'penerima' && drawingPenerima) {
+                const pos = getPos(e, canvasPenerima);
+                ctxPenerima.lineTo(pos.x, pos.y);
+                ctxPenerima.stroke();
+                updateSignaturePreview('penerima');
+            }
+        }
+
+        function stopDraw(type) {
+            if (type === 'penyerah') {
+                drawingPenyerah = false;
+                updateSignaturePreview('penyerah');
+            } else {
+                drawingPenerima = false;
+                updateSignaturePreview('penerima');
+            }
+        }
+
+        function clearSignature(type) {
+            if (type === 'penyerah') {
+                ctxPenyerah.clearRect(0, 0, canvasPenyerah.width, canvasPenyerah.height);
+            } else {
+                ctxPenerima.clearRect(0, 0, canvasPenerima.width, canvasPenerima.height);
+            }
+            updateSignaturePreview(type);
+        }
+
+        function updateSignaturePreview(type) {
+            if (type === 'penyerah') {
+                const previewImg = document.getElementById('previewSigPenyerah');
+                const noSigText = document.getElementById('noSigTextPenyerah');
+                const blank = document.createElement('canvas');
+                blank.width = canvasPenyerah.width;
+                blank.height = canvasPenyerah.height;
+
+                if (canvasPenyerah.toDataURL() === blank.toDataURL()) {
+                    previewImg.src = '';
+                    previewImg.classList.add('hidden');
+                    noSigText.classList.remove('hidden');
+                } else {
+                    previewImg.src = canvasPenyerah.toDataURL();
+                    previewImg.classList.remove('hidden');
+                    noSigText.classList.add('hidden');
+                }
+            } else {
+                const previewImg = document.getElementById('previewSigPenerima');
+                const noSigText = document.getElementById('noSigTextPenerima');
+                const blank = document.createElement('canvas');
+                blank.width = canvasPenerima.width;
+                blank.height = canvasPenerima.height;
+
+                if (canvasPenerima.toDataURL() === blank.toDataURL()) {
+                    previewImg.src = '';
+                    previewImg.classList.add('hidden');
+                    noSigText.classList.remove('hidden');
+                } else {
+                    previewImg.src = canvasPenerima.toDataURL();
+                    previewImg.classList.remove('hidden');
+                    noSigText.classList.add('hidden');
+                }
+            }
+        }
+
+        function loadAppDataFromCloud() {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(data => { 
+                        if (data && !data.error) {
+                            processAppData(data); 
+                        } else {
+                            processAppData(getMockData());
+                        }
+                    })
+                    .withFailureHandler(err => { 
+                        processAppData(getMockData());
+                    })
+                    .getAppData();
+            } else {
+                processAppData(getMockData());
+            }
+        }
+
+        function processAppData(data) {
+            const getProp = (obj, keys) => {
+                if (!obj) return '';
+                for (let k of keys) {
+                    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return String(obj[k]).trim();
+                    const found = Object.keys(obj).find(pk => pk.toLowerCase() === k.toLowerCase());
+                    if (found && obj[found] !== undefined && obj[found] !== null && String(obj[found]).trim() !== '') return String(obj[found]).trim();
+                }
+                return '';
+            };
+
+            let cloudUsers = (data.users || []).map(u => ({
+                username: getProp(u, ['Username', 'username', 'User', 'user', 'Nama', 'nama']),
+                password: getProp(u, ['Password', 'password', 'Pass', 'pass', 'Sandi', 'sandi']),
+                role: getProp(u, ['Role', 'role', 'Level', 'HakAkses']) || 'Petugas',
+                clusters: getProp(u, ['Clusters', 'cluster', 'Cluster', 'Wilayah'])
+            })).filter(u => u.username !== '');
+
+            cloudUsers.forEach(u => {
+                if (typeof u.clusters === 'string') {
+                    u.clusters = u.clusters.split(',').map(s => s.trim());
+                } else {
+                    u.clusters = ['NAGOYA'];
+                }
+            });
+
+            const defaultUsers = [
+                { username: "admin1", password: "12345", role: "Pimpinan", clusters: ["NAGOYA", "BATAM CENTER"] },
+                { username: "petugas1", password: "12345", role: "Petugas", clusters: ["NAGOYA"] }
+            ];
+
+            dbUsers = [...cloudUsers];
+            defaultUsers.forEach(def => {
+                if (!dbUsers.some(u => u.username.toLowerCase() === def.username.toLowerCase())) {
+                    dbUsers.push(def);
+                }
+            });
+
+            dbClusters = (data.clusters || []).map(c => ({
+                id: getProp(c, ['ClusterID', 'id', 'ID']),
+                name: getProp(c, ['ClusterName', 'clusterName', 'name', 'NamaCluster']),
+                keys: getProp(c, ['KeyBarcodes', 'keys', 'barcodes', 'Barcode']).split(',').map(k => k.trim()).filter(k => k !== '')
+            }));
+
+            if (dbClusters.length === 0) {
+                dbClusters = [
+                    { id: "1", name: "NAGOYA", keys: ["ssi123", "KUNCI-A1"] },
+                    { id: "2", name: "BATAM CENTER", keys: ["KUNCI-B1", "KUNCI-B2"] }
+                ];
+            }
+
+            dbMasterAtm = (data.masterAtm || []).map(a => ({
+                id: getProp(a, ['id', 'AtmID', 'ID', 'atm_id']),
+                location: getProp(a, ['location', 'Location', 'NamaLokasi', 'lokasi']),
+                cluster: getProp(a, ['cluster', 'Cluster']),
+                combination: getProp(a, ['combination', 'Kombinasi', 'kombinasi']) || '8899-2341',
+                barcode: getProp(a, ['barcode', 'Barcode'])
+            }));
+
+            if (dbMasterAtm.length === 0) {
+                dbMasterAtm = [
+                    { id: "ATM-01", location: "Nagoya Hill", cluster: "NAGOYA", combination: "8899-2341", barcode: "ssi123" }
+                ];
+            }
+
+            dbLogSerahTerima = data.logSerahTerima || [];
+            dbLogBrankas = data.logBrankas || [];
+            dbLogUangTersangkut = data.logUangTersangkut || [];
+
+            document.getElementById('connectionStatusText').innerText = "Siap Digunakan!";
+            document.getElementById('connectionStatusText').className = "text-sm text-emerald-600 font-semibold mt-1";
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+
+            const found = dbUsers.find(x => 
+                x.username.toLowerCase() === u.toLowerCase() && 
+                String(x.password).trim() === String(p).trim()
+            );
+
+            if (found) {
+                currentUser = found;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('appContainer').classList.remove('hidden');
+                
+                document.getElementById('displayUsername').innerText = currentUser.username;
+                document.getElementById('namaPenerima').value = currentUser.username;
+
+                const badge = document.getElementById('displayRoleBadge');
+                badge.innerText = currentUser.role;
+                if(currentUser.role.toLowerCase() === 'pimpinan' || currentUser.role.toLowerCase() === 'admin') {
+                    currentUser.role = 'Pimpinan';
+                    badge.className = 'inline-block px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-emerald-100 text-emerald-700';
+                } else {
+                    currentUser.role = 'Petugas';
+                    badge.className = 'inline-block px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-100 text-amber-700';
+                }
+
+                applyRolePermissions();
+                initApp();
+            } else {
+                alert('Username atau Password salah! (Pastikan data di sheet Users sudah terisi dengan benar).');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            stopCameraScanner();
+            document.getElementById('appContainer').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            clearSignature('penyerah');
+            clearSignature('penerima');
+        }
+
+        function applyRolePermissions() {
+            const btnWrapper = document.getElementById('addAtmBtnWrapper');
+            if (currentUser.role === 'Petugas') {
+                btnWrapper.style.display = 'none';
+            } else {
+                btnWrapper.style.display = 'block';
+            }
+        }
+
+        function initApp() {
+            const stSel = document.getElementById('stClusterSelect');
+            stSel.innerHTML = '';
+            dbClusters.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.name;
+                opt.innerText = c.name;
+                stSel.appendChild(opt);
+            });
+
+            const utAtm = document.getElementById('utAtmSelect');
+            const vaultAtm = document.getElementById('vaultAtmSelect');
+            utAtm.innerHTML = '';
+            vaultAtm.innerHTML = '';
+            dbMasterAtm.forEach(atm => {
+                const opt1 = document.createElement('option');
+                opt1.value = atm.id;
+                opt1.innerText = `${atm.id} - ${atm.location}`;
+                utAtm.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = atm.id;
+                opt2.innerText = `${atm.id} - ${atm.location}`;
+                vaultAtm.appendChild(opt2);
+            });
+
+            loadClusterKeys();
+            renderMasterAtmTable();
+            renderLogs('logSerah');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-all whitespace-nowrap';
+            });
+
+            document.getElementById('content-' + tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('tab-' + tabId);
+            activeBtn.className = 'tab-btn px-4 py-2 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 transition-all whitespace-nowrap';
+
+            if (tabId !== 'serahTerima') {
+                stopCameraScanner();
+            }
+        }
+
+        function loadClusterKeys() {
+            const clusterName = document.getElementById('stClusterSelect').value;
+            const cluster = dbClusters.find(c => c.name === clusterName);
+            scannedKeys.clear();
+
+            const container = document.getElementById('keyListContainer');
+            container.innerHTML = '';
+
+            if (cluster) {
+                if (cluster.keys.length === 0 || (cluster.keys.length === 1 && cluster.keys[0] === '')) {
+                    container.innerHTML = `<p class="text-xs text-rose-500 italic">Belum ada barcode yang terdaftar di Master ATM untuk cluster ini.</p>`;
+                } else {
+                    cluster.keys.forEach(k => {
+                        const atmInfo = dbMasterAtm.find(a => a.barcode === k);
+                        const labelText = atmInfo ? `${k} (${atmInfo.id} - ${atmInfo.location})` : k;
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/50';
+                        div.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" disabled id="chk_${k}" class="w-4 h-4 text-blue-600 rounded border-slate-300">
+                                <span class="font-mono text-xs font-bold text-slate-700">${labelText}</span>
+                            </div>
+                            <span id="badge_${k}" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">Belum Discan</span>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+            }
+            updateBeritaAcaraPreview();
+        }
+
+        function manualScanKey() {
+            const code = document.getElementById('manualBarcodeInput').value.trim();
+            if (!code) return;
+            processScannedKey(code);
+            document.getElementById('manualBarcodeInput').value = '';
+        }
+
+        function processScannedKey(code) {
+            const clusterName = document.getElementById('stClusterSelect').value;
+            const cluster = dbClusters.find(c => c.name === clusterName);
+
+            if (cluster && cluster.keys.includes(code)) {
+                scannedKeys.add(code);
+                const chk = document.getElementById(`chk_${code}`);
+                const badge = document.getElementById(`badge_${code}`);
+                if (chk) chk.checked = true;
+                if (badge) {
+                    badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700';
+                    badge.innerText = 'Lengkap / Discan';
+                }
+                updateBeritaAcaraPreview();
+            } else {
+                alert(`Barcode "${code}" tidak ditemukan dalam checklist cluster ${clusterName}!`);
+            }
+        }
+
+        function updateBeritaAcaraPreview() {
+            const clusterName = document.getElementById('stClusterSelect').value;
+            const cluster = dbClusters.find(c => c.name === clusterName);
+            if (!cluster) return;
+
+            const statusBadge = document.getElementById('statusBadge');
+            const baContainer = document.getElementById('baDetailContent');
+
+            const allKeys = cluster.keys.filter(k => k !== '');
+            const missingKeys = allKeys.filter(k => !scannedKeys.has(k));
+
+            let statusStr = "Lengkap";
+            if (scannedKeys.size === 0) {
+                statusBadge.className = 'px-3 py-1 text-xs font-bold rounded-full bg-slate-100 text-slate-600';
+                statusBadge.innerText = 'Belum Diperiksa';
+                statusStr = 'Belum';
+            } else if (missingKeys.length > 0) {
+                statusBadge.className = 'px-3 py-1 text-xs font-bold rounded-full bg-rose-100 text-rose-700 animate-pulse';
+                statusBadge.innerText = 'TIDAK LENGKAP (KURANG)';
+                statusStr = 'Kurang';
+            } else {
+                statusBadge.className = 'px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700';
+                statusBadge.innerText = 'LENGKAP';
+                statusStr = 'Lengkap';
+            }
+
+            const now = new Date().toLocaleString();
+            const shiftPrev = document.getElementById('shiftSebelum').value;
+            const shiftNext = document.getElementById('shiftBerjalan').value;
+            const penyerah = document.getElementById('namaPenyerah').value.trim() || '(Belum diisi)';
+            const penerima = document.getElementById('namaPenerima').value.trim() || (currentUser ? currentUser.username : 'Penerima');
+
+            document.getElementById('signNamePenyerahPrev').innerText = `(${penyerah})`;
+            document.getElementById('signNamePenerimaPrev').innerText = `(${penerima})`;
+
+            baContainer.innerHTML = `
+                <div><b>Timestamp</b>        : ${now}</div>
+                <div><b>Petugas Penyerah</b> : ${penyerah} (${shiftPrev})</div>
+                <div><b>Petugas Penerima</b> : ${penerima} (${shiftNext}) - Scan Barcode</div>
+                <div><b>Cluster</b>          : ${clusterName}</div>
+                <div><b>Status Kunci</b>     : <span style="font-weight:bold;">${statusStr}</span></div>
+                <div><b>Barcode Diterima</b> : ${Array.from(scannedKeys).join(', ') || 'Tidak ada'}</div>
+                <div><b>Kurang</b>           : ${missingKeys.join(', ') || 'Nihil'}</div>
+            `;
+        }
+
+        function submitSerahTerima() {
+            const clusterName = document.getElementById('stClusterSelect').value;
+            const cluster = dbClusters.find(c => c.name === clusterName);
+            const allKeys = cluster ? cluster.keys.filter(k => k !== '') : [];
+            const missingKeys = allKeys.filter(k => !scannedKeys.has(k));
+            const statusStr = (scannedKeys.size === 0) ? 'Belum' : (missingKeys.length > 0 ? 'Kurang' : 'Lengkap');
+            
+            const shiftPrev = document.getElementById('shiftSebelum').value;
+            const shiftNext = document.getElementById('shiftBerjalan').value;
+            const penerima = document.getElementById('namaPenerima').value.trim() || currentUser.username;
+            const penyerah = document.getElementById('namaPenyerah').value.trim() || '(Belum diisi)';
+
+            const baText = `BERITA ACARA SERAH TERIMA KUNCI ATM & COU
+PT SWADHARMA SARANA INFORMATIKA (SSI) BATAM
+--------------------------------------------------
+Timestamp        : ${new Date().toLocaleString()}
+Petugas Penyerah : ${penyerah} (${shiftPrev})
+Petugas Penerima : ${penerima} (${shiftNext})
+Cluster          : ${clusterName}
+Status Kunci     : ${statusStr}
+Barcode Diterima : ${Array.from(scannedKeys).join(', ') || 'Tidak ada'}
+Kurang           : ${missingKeys.join(', ') || 'Nihil'}
+--------------------------------------------------`;
+
+            const logEntry = {
+                timestamp: new Date().toLocaleString(),
+                petugas: penerima,
+                clusters: clusterName,
+                shiftSebelum: shiftPrev,
+                shiftBerjalan: shiftNext,
+                status: statusStr,
+                detailScan: Array.from(scannedKeys),
+                beritaAcara: baText
+            };
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        alert('Berita Acara Serah Terima Kunci berhasil disimpan ke Spreadsheet!');
+                        dbLogSerahTerima.unshift(logEntry);
+                        loadClusterKeys();
+                    })
+                    .withFailureHandler(err => alert('Gagal menyimpan ke cloud: ' + err.message))
+                    .saveLogSerahTerima(logEntry);
+            } else {
+                alert('Berita Acara berhasil dicatat.');
+                dbLogSerahTerima.unshift(logEntry);
+            }
+        }
+
+        function downloadPDF() {
+            window.print();
+        }
+
+        function viewHistoricalBA(index) {
+            const log = dbLogSerahTerima[index];
+            if (!log) return;
+
+            let baText = log.BeritaAcara || log.beritaAcara || log['Berita Acara'] || log['berita_acara'];
+
+            if (!baText || baText.trim() === '') {
+                const ts = log.Timestamp || log.timestamp || '-';
+                const pet = log.Petugas || log.petugas || '-';
+                const cls = log.Clusters || log.clusters || '-';
+                const sPrev = log.ShiftSebelum || log.shiftSebelum || '-';
+                const sNext = log.ShiftBerjalan || log.shiftBerjalan || '-';
+                const st = log.Status || log.status || '-';
+                const detail = log.DetailScan || log.detailScan || log.Barcode || 'Sesuai catatan log';
+
+                baText = `BERITA ACARA SERAH TERIMA KUNCI ATM & COU
+PT SWADHARMA SARANA INFORMATIKA (SSI) BATAM
+--------------------------------------------------
+Timestamp        : ${ts}
+Petugas Penerima : ${pet}
+Cluster          : ${cls}
+Shift            : ${sPrev} ➔ ${sNext}
+Status Kunci     : ${st}
+Detail / Barcode : ${Array.isArray(detail) ? detail.join(', ') : detail}
+--------------------------------------------------`;
+            }
+
+            document.getElementById('modalPrintContent').innerText = baText;
+            document.getElementById('modalPrintBA').classList.remove('hidden');
+        }
+
+        function closePrintModal() {
+            document.getElementById('modalPrintBA').classList.add('hidden');
+        }
+
+        function printHistoricalBA() {
+            window.print();
+        }
+
+        // URL halaman scanner live yang di-host di domain HTTPS terpisah (mis. GitHub Pages).
+        // Ganti nilai ini setelah halaman Aplikasi_Kunci_ATM_LiveScanner.html di-host.
+        const LIVE_SCANNER_URL = 'https://YOUR-USERNAME.github.io/atm-key-scanner/';
+        const LIVE_SCANNER_ORIGIN = 'https://YOUR-USERNAME.github.io';
+        let liveScannerWindow = null;
+
+        function openLiveBarcodeScanner() {
+            if (LIVE_SCANNER_URL.includes('YOUR-USERNAME')) {
+                alert('Halaman Live Scanner belum dikonfigurasi. Host file Aplikasi_Kunci_ATM_LiveScanner.html pada HTTPS (misalnya GitHub Pages), lalu isi LIVE_SCANNER_URL dan LIVE_SCANNER_ORIGIN di kode aplikasi.');
+                return;
+            }
+
+            const readerDiv = document.getElementById('reader');
+            const status = document.getElementById('scannerStatus');
+            scannerRunning = true;
+            status.className = 'scanner-status scanner-on';
+            status.innerHTML = '<i class="fa-solid fa-circle text-[7px] mr-1"></i> Live Camera';
+            readerDiv.innerHTML = `
+                <div class="scanner-placeholder">
+                    <div class="scanner-placeholder-icon"><i class="fa-solid fa-camera"></i></div>
+                    <p class="font-semibold text-slate-700 text-sm">Live Camera dibuka</p>
+                    <p class="text-xs text-slate-500 mt-1">Arahkan barcode ke kamera. Hasil scan akan kembali otomatis ke aplikasi.</p>
+                </div>`;
+
+            liveScannerWindow = window.open(LIVE_SCANNER_URL, 'ATM_Live_Scanner', 'width=480,height=820,resizable=yes,scrollbars=yes');
+            if (!liveScannerWindow) {
+                scannerRunning = false;
+                status.className = 'scanner-status scanner-off';
+                status.innerHTML = '<i class="fa-solid fa-circle text-[7px] mr-1"></i> Kamera Mati';
+                alert('Popup scanner diblokir browser. Izinkan popup untuk halaman aplikasi ini lalu coba lagi.');
+            }
+        }
+
+        window.addEventListener('message', function(event) {
+            if (LIVE_SCANNER_ORIGIN.includes('YOUR-USERNAME')) return;
+            if (event.origin !== LIVE_SCANNER_ORIGIN) return;
+            const data = event.data || {};
+            if (data.type !== 'ATM_BARCODE_SCANNED') return;
+
+            const code = String(data.code || '').trim();
+            if (!code) return;
+
+            const now = Date.now();
+            if (code === lastScannedCode && now - lastScannedAt < 1500) return;
+            lastScannedCode = code;
+            lastScannedAt = now;
+
+            processScannedKey(code);
+            scannerRunning = false;
+
+            const status = document.getElementById('scannerStatus');
+            const readerDiv = document.getElementById('reader');
+            if (status) {
+                status.className = 'scanner-status scanner-on';
+                status.innerHTML = '<i class="fa-solid fa-check text-[9px] mr-1"></i> Barcode Terbaca';
+            }
+            if (readerDiv) {
+                readerDiv.innerHTML = `
+                    <div class="scanner-placeholder">
+                        <div class="scanner-placeholder-icon scanner-success"><i class="fa-solid fa-barcode"></i></div>
+                        <p class="font-semibold text-emerald-700 text-sm">Barcode terbaca</p>
+                        <p class="text-xs text-slate-500 mt-1">${escapeHtml(code)} — hasil sudah diproses.</p>
+                    </div>`;
+            }
+
+            try {
+                if (liveScannerWindow && !liveScannerWindow.closed) liveScannerWindow.close();
+            } catch (e) {}
+            liveScannerWindow = null;
+        });
+
+        function stopCameraScanner() {
+            try {
+                if (liveScannerWindow && !liveScannerWindow.closed) {
+                    liveScannerWindow.postMessage({ type: 'STOP_ATM_SCANNER' }, LIVE_SCANNER_ORIGIN);
+                    liveScannerWindow.close();
+                }
+            } catch (err) {}
+            liveScannerWindow = null;
+            try { if (zxingReader && typeof zxingReader.reset === 'function') zxingReader.reset(); } catch (err) {}
+            zxingReader = null;
+            zxingControls = null;
+            scannerRunning = false;
+            const status = document.getElementById('scannerStatus');
+            const readerDiv = document.getElementById('reader');
+            if (status) {
+                status.className = 'scanner-status scanner-off';
+                status.innerHTML = '<i class="fa-solid fa-circle text-[7px] mr-1"></i> Siap Scan';
+            }
+            if (readerDiv) {
+                readerDiv.innerHTML = `
+                    <div class="scanner-placeholder">
+                        <div class="scanner-placeholder-icon"><i class="fa-solid fa-camera"></i></div>
+                        <p class="font-semibold text-slate-700 text-sm">Live scanner siap digunakan</p>
+                        <p class="text-xs text-slate-500 mt-1">Tekan “Buka Live Camera” untuk memindai barcode secara realtime.</p>
+                    </div>`;
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+        }
+
+        function submitUangTersangkut(e) {
+            e.preventDefault();
+            const atmId = document.getElementById('utAtmSelect').value;
+            const d50 = parseInt(document.getElementById('utDenom50').value) || 0;
+            const d100 = parseInt(document.getElementById('utDenom100').value) || 0;
+            const total = (d50 * 50000) + (d100 * 100000);
+            const fotoName = document.getElementById('utFoto').value.trim() || 'Tidak ada keterangan';
+
+            const log = {
+                timestamp: new Date().toLocaleString(),
+                petugas: currentUser.username,
+                atmId: atmId,
+                denom50: d50,
+                denom100: d100,
+                jumlah: total.toLocaleString('id-ID'),
+                fotoURL: fotoName
+            };
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        alert(`Laporan uang tersangkut Rp ${total.toLocaleString('id-ID')} tersimpan!`);
+                        dbLogUangTersangkut.unshift(log);
+                        e.target.reset();
+                    })
+                    .withFailureHandler(err => alert('Gagal: ' + err.message))
+                    .saveLogUangTersangkut(log);
+            } else {
+                alert(`Laporan tersimpan: Rp ${total.toLocaleString('id-ID')}`);
+                dbLogUangTersangkut.unshift(log);
+                e.target.reset();
+            }
+        }
+
+        function requestVaultOpening() {
+            const atmId = document.getElementById('vaultAtmSelect').value;
+            const reason = document.getElementById('vaultReason').value.trim();
+            if (!reason) {
+                alert('Harap isi alasan buka brankas terlebih dahulu!');
+                return;
+            }
+
+            const atm = dbMasterAtm.find(a => a.id === atmId);
+            const box = document.getElementById('vaultResultBox');
+
+            box.innerHTML = `
+                <div class="space-y-2">
+                    <span class="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">Izin Disetujui</span>
+                    <h4 class="font-bold text-slate-800 text-sm">ATM ID: ${atm.id} (${atm.location})</h4>
+                    <div class="text-xl font-mono font-extrabold text-blue-600 tracking-wider">${atm.combination}</div>
+                    <p class="text-xs text-slate-500">Valid untuk 1x buka • Dicatat oleh ${currentUser.username}</p>
+                </div>
+            `;
+
+            const log = {
+                timestamp: new Date().toLocaleString(),
+                petugas: currentUser.username,
+                atmId: atm.id,
+                kombinasi: `${atm.combination} (Valid untuk 1x buka - ${reason})`
+            };
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.saveLogBrankas(log);
+            }
+            dbLogBrankas.unshift(log);
+        }
+
+        function renderMasterAtmTable() {
+            const tbody = document.getElementById('masterAtmTableBody');
+            tbody.innerHTML = '';
+
+            dbMasterAtm.forEach((atm, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-semibold text-slate-800">${atm.id}</td>
+                    <td class="p-3 text-slate-600">${atm.location}</td>
+                    <td class="p-3 font-semibold text-blue-600">${atm.cluster}</td>
+                    <td class="p-3 font-mono text-slate-600">********</td>
+                    <td class="p-3 font-mono text-slate-600">${atm.barcode || '-'}</td>
+                    <td class="p-3 text-center space-x-2">
+                        ${currentUser.role === 'Pimpinan' ? `
+                            <button onclick="editAtm(${index})" class="text-blue-600 hover:text-blue-800 font-semibold text-xs"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteAtm(${index})" class="text-rose-600 hover:text-rose-800 font-semibold text-xs"><i class="fa-solid fa-trash"></i></button>
+                        ` : `<span class="text-[10px] text-slate-400 italic">Read-only</span>`}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAtmModal(index = null) {
+            if (currentUser.role !== 'Pimpinan') {
+                alert('Akses ditolak! Hanya Pimpinan yang dapat menambah Master ATM.');
+                return;
+            }
+
+            document.getElementById('atmModal').classList.remove('hidden');
+            if (index !== null) {
+                document.getElementById('modalTitle').innerText = 'Edit Master ATM';
+                document.getElementById('editAtmIndex').value = index;
+                document.getElementById('modalAtmId').value = dbMasterAtm[index].id;
+                document.getElementById('modalAtmLoc').value = dbMasterAtm[index].location;
+                document.getElementById('modalAtmCluster').value = dbMasterAtm[index].cluster;
+                document.getElementById('modalAtmCombo').value = dbMasterAtm[index].combination;
+                document.getElementById('modalAtmBarcode').value = dbMasterAtm[index].barcode;
+            } else {
+                document.getElementById('modalTitle').innerText = 'Tambah Master ATM';
+                document.getElementById('editAtmIndex').value = '';
+                document.getElementById('atmForm').reset();
+            }
+        }
+
+        function closeAtmModal() {
+            document.getElementById('atmModal').classList.add('hidden');
+        }
+
+        function saveAtmMaster(e) {
+            e.preventDefault();
+            if (currentUser.role !== 'Pimpinan') return;
+
+            const idx = document.getElementById('editAtmIndex').value;
+            const data = {
+                id: document.getElementById('modalAtmId').value.trim(),
+                location: document.getElementById('modalAtmLoc').value.trim(),
+                cluster: document.getElementById('modalAtmCluster').value.trim(),
+                combination: document.getElementById('modalAtmCombo').value.trim(),
+                barcode: document.getElementById('modalAtmBarcode').value.trim()
+            };
+
+            if (idx === "") {
+                dbMasterAtm.push(data);
+            } else {
+                dbMasterAtm[idx] = data;
+            }
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(() => {
+                        alert('Master ATM berhasil diperbarui!');
+                        closeAtmModal();
+                        loadAppDataFromCloud();
+                    })
+                    .withFailureHandler(err => alert('Gagal: ' + err.message))
+                    .saveMasterAtm(dbMasterAtm);
+            } else {
+                closeAtmModal();
+                initApp();
+            }
+        }
+
+        function editAtm(index) { openAtmModal(index); }
+        function deleteAtm(index) {
+            if (currentUser.role !== 'Pimpinan') return;
+            if (confirm(`Hapus ATM ${dbMasterAtm[index].id}?`)) {
+                dbMasterAtm.splice(index, 1);
+                if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    google.script.run.saveMasterAtm(dbMasterAtm);
+                }
+                initApp();
+            }
+        }
+
+        function switchLogSub(sub) {
+            ['serah', 'brankas', 'uang'].forEach(s => {
+                const btn = document.getElementById('sublog-' + s);
+                if ('sublog-' + s === 'sublog-' + (sub === 'logSerah' ? 'serah' : sub === 'logBrankas' ? 'brankas' : 'uang')) {
+                    btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-white';
+                } else {
+                    btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600';
+                }
+            });
+            renderLogs(sub);
+        }
+
+        function renderLogs(sub) {
+            const wrapper = document.getElementById('logTableWrapper');
+            wrapper.innerHTML = '';
+
+            if (sub === 'logSerah') {
+                let html = `<table class="w-full text-left border-collapse text-xs">
+                    <thead><tr class="bg-slate-50 text-slate-600 uppercase text-[10px] border-b"><th class="p-2.5">Waktu</th><th class="p-2.5">Petugas Penerima</th><th class="p-2.5">Cluster</th><th class="p-2.5">Shift</th><th class="p-2.5">Status</th><th class="p-2.5">Aksi PDF</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">`;
+                if (dbLogSerahTerima.length === 0) {
+                    html += `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada log serah terima.</td></tr>`;
+                } else {
+                    dbLogSerahTerima.forEach((l, index) => {
+                        const shiftInfo = `${l.ShiftSebelum || l.shiftSebelum || '-'} ➔ ${l.ShiftBerjalan || l.shiftBerjalan || '-'}`;
+                        html += `<tr>
+                            <td class="p-2.5 text-slate-500">${l.Timestamp || l.timestamp || ''}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">${l.Petugas || l.petugas || ''}</td>
+                            <td class="p-2.5 text-slate-600">${l.Clusters || l.clusters || ''}</td>
+                            <td class="p-2.5 text-slate-600 font-mono text-[11px]">${shiftInfo}</td>
+                            <td class="p-2.5"><span class="px-2 py-0.5 rounded font-bold ${(l.Status || l.status) === 'Lengkap' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${l.Status || l.status || ''}</span></td>
+                            <td class="p-2.5">
+                                <button onclick="viewHistoricalBA(${index})" class="px-2.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-semibold text-xs flex items-center space-x-1"><i class="fa-solid fa-file-pdf"></i><span>Unduh PDF</span></button>
+                            </td>
+                        </tr>`;
+                    });
+                }
+                html += `</tbody></table>`;
+                wrapper.innerHTML = html;
+            } else if (sub === 'logBrankas') {
+                let html = `<table class="w-full text-left border-collapse text-xs">
+                    <thead><tr class="bg-slate-50 text-slate-600 uppercase text-[10px] border-b"><th class="p-2.5">Waktu</th><th class="p-2.5">Petugas</th><th class="p-2.5">ATM ID</th><th class="p-2.5">Kombinasi & Keperluan</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">`;
+                if (dbLogBrankas.length === 0) {
+                    html += `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada log permohonan brankas.</td></tr>`;
+                } else {
+                    dbLogBrankas.forEach(l => {
+                        html += `<tr>
+                            <td class="p-2.5 text-slate-500">${l.Timestamp || l.timestamp || ''}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">${l.Petugas || l.petugas || ''}</td>
+                            <td class="p-2.5 font-mono text-slate-600">${l.AtmID || l.atmId || ''}</td>
+                            <td class="p-2.5 font-mono text-slate-700">${l.Kombinasi || l.kombinasi || ''}</td>
+                        </tr>`;
+                    });
+                }
+                html += `</tbody></table>`;
+                wrapper.innerHTML = html;
+            } else if (sub === 'logUang') {
+                let html = `<table class="w-full text-left border-collapse text-xs">
+                    <thead><tr class="bg-slate-50 text-slate-600 uppercase text-[10px] border-b"><th class="p-2.5">Waktu</th><th class="p-2.5">Petugas</th><th class="p-2.5">ATM ID</th><th class="p-2.5">Denom 50rb</th><th class="p-2.5">Denom 100rb</th><th class="p-2.5">Total (Rp)</th><th class="p-2.5">Keterangan</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">`;
+                if (dbLogUangTersangkut.length === 0) {
+                    html += `<tr><td colspan="7" class="p-4 text-center text-slate-400">Belum ada log uang tersangkut.</td></tr>`;
+                } else {
+                    dbLogUangTersangkut.forEach(l => {
+                        html += `<tr>
+                            <td class="p-2.5 text-slate-500">${l.Timestamp || l.timestamp || ''}</td>
+                            <td class="p-2.5 font-semibold text-slate-800">${l.Petugas || l.petugas || ''}</td>
+                            <td class="p-2.5 font-mono text-slate-600">${l.AtmID || l.atmId || ''}</td>
+                            <td class="p-2.5">${l.denom50 || l.Denom50 || 0} lbr</td>
+                            <td class="p-2.5">${l.denom100 || l.Denom100 || 0} lbr</td>
+                            <td class="p-2.5 font-bold text-slate-800">Rp ${l.Jumlah || l.jumlah || '0'}</td>
+                            <td class="p-2.5 text-slate-500">${l.FotoURL || l.fotoURL || '-'}</td>
+                        </tr>`;
+                    });
+                }
+                html += `</tbody></table>`;
+                wrapper.innerHTML = html;
+            }
+        }
+    </script>
+</body>
+</html>
